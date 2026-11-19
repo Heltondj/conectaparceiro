@@ -4,12 +4,12 @@
       O mesmo e-mail precisa estar nas regras (firestore.rules e storage.rules) e na função de IA (functions/index.js). */
 window.CP_CONFIG = {
   firebase: {
-    apiKey: "COLE_AQUI",
-    authDomain: "SEU-PROJETO.firebaseapp.com",
-    projectId: "SEU-PROJETO",
-    storageBucket: "SEU-PROJETO.firebasestorage.app",
-    messagingSenderId: "COLE_AQUI",
-    appId: "COLE_AQUI"
+    apiKey: "AIzaSyDx8HYnEUR0nhuMsLZ3bwNueemvg7AJYrY",
+    authDomain: "conectaparceiro-alupar.firebaseapp.com",
+    projectId: "conectaparceiro-alupar",
+    storageBucket: "conectaparceiro-alupar.firebasestorage.app",
+    messagingSenderId: "780065039144",
+    appId: "1:780065039144:web:2bdf233cae96179baf661d"
   },
   administradores: ["hvieira@alupar.com.br"],
   regiaoFuncoes: "southamerica-east1",

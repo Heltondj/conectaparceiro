@@ -44,7 +44,7 @@ const css = `
 #cp-login button{font:600 14.5px inherit;font-family:inherit;border-radius:10px;padding:12px 16px;cursor:pointer;border:1px solid #0A3A78}
 #cp-login .pri{background:#0A3A78;color:#fff}
 #cp-login .sec{background:#fff;color:#0A3A78}
-#cp-login input{font:15px inherit;font-family:inherit;padding:11px 13px;border:1px solid #CBD5E1;border-radius:10px}
+#cp-login input{font:15px inherit;font-family:inherit;padding:11px 13px;border:1px solid #CBD5E1;border-radius:10px;background:#fff!important;color:#0E1B2E!important}
 #cp-login .div{display:flex;align-items:center;gap:10px;color:#94A3B8;font-size:12px}
 #cp-login .div::before,#cp-login .div::after{content:'';flex:1;height:1px;background:#E2E8F0}
 #cp-login .msg{font-size:13px;color:#B42318;min-height:1em}
