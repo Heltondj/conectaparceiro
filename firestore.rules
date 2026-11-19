@@ -1,0 +1,61 @@
+rules_version = '2';
+// ConectaParceiro – regras de acesso ao banco (Firestore)
+// Gestor responsável: troque/adicione o e-mail na função dono() se mudar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function logado() { return request.auth != null; }
+    function verificado() { return logado() && request.auth.token.email_verified == true; }
+    function em() { return request.auth.token.email.lower(); }
+    function dono() { return verificado() && em() in ['hvieira@alupar.com.br']; }
+    function papelDoc() { return /databases/$(database)/documents/papeis/$(em()); }
+    function temPapel() { return verificado() && exists(papelDoc()) && get(papelDoc()).data.ativo == true; }
+    // equipe Alupar (técnico, coordenador, supervisor, administrativo, portaria)
+    function alupar() { return dono() || temPapel(); }
+    // quem edita: dono e técnicos de SST
+    function tec() { return dono() || (temPapel() && get(papelDoc()).data.papel == 'tecnico'); }
+    // empresa parceira vinculada a este login pelo código de acesso
+    function vincDoc() { return /databases/$(database)/documents/vinculos/$(request.auth.uid); }
+    function minhaEmp(id) { return logado() && exists(vincDoc()) && get(vincDoc()).data.empresaId == id; }
+
+    match /empresas/{id} {
+      allow get: if alupar() || minhaEmp(id);
+      allow list: if alupar();
+      allow write: if tec();
+    }
+    // cadastros e documentos: a parceira lê e grava só os da própria empresa
+    match /funcionarios/{id} { allow read: if alupar() || minhaEmp(resource.data.empresaId);
+      allow create: if tec() || minhaEmp(request.resource.data.empresaId);
+      allow update: if tec() || (minhaEmp(resource.data.empresaId) && minhaEmp(request.resource.data.empresaId));
+      allow delete: if tec() || minhaEmp(resource.data.empresaId); }
+    match /ativos/{id} { allow read: if alupar() || minhaEmp(resource.data.empresaId);
+      allow create: if tec() || minhaEmp(request.resource.data.empresaId);
+      allow update: if tec() || (minhaEmp(resource.data.empresaId) && minhaEmp(request.resource.data.empresaId));
+      allow delete: if tec() || minhaEmp(resource.data.empresaId); }
+    match /documentos/{id} { allow read: if alupar() || minhaEmp(resource.data.empresaId);
+      allow create: if tec() || minhaEmp(request.resource.data.empresaId);
+      allow update: if tec() || (minhaEmp(resource.data.empresaId) && minhaEmp(request.resource.data.empresaId));
+      allow delete: if tec() || minhaEmp(resource.data.empresaId); }
+    // resultado das análises: só a equipe de SST grava
+    match /analises/{id} { allow read: if alupar() || minhaEmp(resource.data.empresaId); allow write: if tec(); }
+    match /notificacoes/{id} { allow read: if alupar() || minhaEmp(resource.data.empresaId); allow write: if tec(); }
+    match /preanalises/{id} { allow read, write: if tec(); }
+    // arquivos antigos guardados em partes no banco (ids aleatórios)
+    match /arquivos/{id} { allow read: if logado(); allow create: if logado(); allow update, delete: if tec(); }
+    match /config/{id} { allow read: if logado(); allow write: if dono(); }
+    // equipe e permissões: só o gestor responsável altera
+    match /equipe/{id} { allow read: if tec(); allow write: if dono(); }
+    match /acessos/{id} { allow read: if logado(); allow write: if dono(); }
+    match /papeis/{email} { allow get: if verificado() && (email == em() || tec()); allow list: if tec(); allow write: if dono(); }
+    match /codigos/{cod} { allow get: if logado(); allow list, write: if dono(); }
+    match /vinculos/{uid} {
+      allow read: if logado() && (uid == request.auth.uid || alupar());
+      allow create, update: if logado() && uid == request.auth.uid
+        && exists(/databases/$(database)/documents/codigos/$(request.resource.data.codigo))
+        && get(/databases/$(database)/documents/codigos/$(request.resource.data.codigo)).data.empresaId == request.resource.data.empresaId;
+      allow delete: if logado() && (uid == request.auth.uid || dono());
+    }
+    match /pedidos/{id} { allow read, write: if dono() || (logado() && id == request.auth.uid); }
+    // livro da portaria
+    match /consultas/{id} { allow create: if alupar(); allow read: if tec(); allow update, delete: if dono(); }
+  }
+}

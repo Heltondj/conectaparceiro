@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Importar backup – ConectaParceiro</title>
+<link rel="icon" href="img/icone.svg" type="image/svg+xml">
+<style>
+body{margin:0;background:#EEF2F7;font:15px/1.55 Inter,'Segoe UI',system-ui,sans-serif;color:#0E1B2E}
+main{max-width:640px;margin:40px auto;padding:0 16px}
+.card{background:#fff;border:1px solid #DCE3EC;border-radius:14px;padding:24px}
+h1{font-size:22px;margin:0 0 6px}
+p{color:#56667C}
+input[type=file]{margin:12px 0;font:inherit}
+button{background:#0A3A78;color:#fff;border:0;border-radius:10px;padding:12px 18px;font:600 15px inherit;font-family:inherit;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+#log{margin-top:16px;font:13px/1.6 ui-monospace,Menlo,Consolas,monospace;background:#F4F7FA;border-radius:10px;padding:12px;min-height:60px;white-space:pre-wrap}
+.ok{color:#157F3F;font-weight:600}.err{color:#B42318;font-weight:600}
+</style></head>
+<body><main><div class="card">
+  <h1>Importar o backup do Claude</h1>
+  <p>Use uma única vez, depois de configurar o Firebase. Escolha o arquivo <b>conectaparceiro-backup-….zip</b> baixado na aba Relatórios do app antigo. Os arquivos (PDFs e fotos) e todos os cadastros são copiados para o Firebase com os mesmos códigos.</p>
+  <p>Somente o gestor responsável (e-mail em <code>administradores</code>) consegue importar.</p>
+  <input type="file" id="zip" accept=".zip"><br>
+  <button id="ir" disabled>Importar</button>
+  <div id="log">Aguardando o login…</div>
+</div></main>
+<script src="js/firebase-config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>window.__cpPronto = async cp => { const l = document.getElementById('log'); await cp.pronto;
+  if (!cp.ctx.dono){ l.innerHTML = '<span class="err">Este login (' + cp.ctx.email + ') não é o gestor responsável.</span>'; return; }
+  l.textContent = 'Conectado como ' + cp.ctx.email + '. Escolha o arquivo do backup.'; document.getElementById('ir').disabled = false;
+  document.getElementById('ir').onclick = async () => {
+    const f = document.getElementById('zip').files[0]; if (!f){ l.textContent = 'Escolha o arquivo .zip primeiro.'; return; }
+    const b = document.getElementById('ir'); b.disabled = true; l.textContent = 'Lendo o backup…\n';
+    try { const r = await cp.importar(f, t => { l.textContent += t + '\n'; l.scrollTop = 1e9; });
+      l.innerHTML += `<span class="ok">Pronto: ${r.registros} registros e ${r.arquivos} arquivos importados.</span>\nAbra o portal (index.html) para conferir.`; }
+    catch (e){ console.error(e); l.innerHTML += '<span class="err">Erro: ' + String(e && e.message || e).replace(/</g, '&lt;') + '</span>'; b.disabled = false; }
+  };
+};</script>
+<script type="module" src="js/cp-firebase.js"></script>
+</body></html>

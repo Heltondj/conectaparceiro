@@ -1,0 +1,19 @@
+rules_version = '2';
+// ConectaParceiro – arquivos (PDFs dos documentos e fotos 3x4)
+// Cada arquivo tem um nome aleatório de 32 caracteres, que só aparece para quem pode ver o documento.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function tec() {
+      return request.auth != null && request.auth.token.email_verified == true && (
+        request.auth.token.email.lower() in ['hvieira@alupar.com.br'] ||
+        (firestore.exists(/databases/(default)/documents/papeis/$(request.auth.token.email.lower())) &&
+         firestore.get(/databases/(default)/documents/papeis/$(request.auth.token.email.lower())).data.papel == 'tecnico'));
+    }
+    match /arquivos/{id} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/.*|application/octet-stream');
+      allow update, delete: if tec();
+    }
+  }
+}
