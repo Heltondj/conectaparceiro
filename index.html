@@ -9,7 +9,7 @@
 <title>ConectaParceiro – Alupar</title>
 <meta name="description" content="ConectaParceiro – gestão da documentação de SST das empresas parceiras da Alupar">
 <link rel="icon" href="img/icone.svg" type="image/svg+xml">
-<script src="js/firebase-config.js"></script>
+<script src="js/firebase-config.js?v=202611221431"></script>
 <script>
 window.claude = {use: n => new Promise(r => { const ir = cp => r(cp.use(n)); if (window.__cp) ir(window.__cp); else (window.__cpFila = window.__cpFila || []).push(ir); })};
 window.__cpPronto = cp => (window.__cpFila || []).splice(0).forEach(f => f(cp));
@@ -3346,6 +3346,6 @@ lerHash();
 window.addEventListener('hashchange', () => { lerHash(); render(); });
 boot();
 </script>
-<script type="module" src="js/cp-firebase.js"></script>
+<script type="module" src="js/cp-firebase.js?v=202611221431"></script>
 </body>
 </html>
