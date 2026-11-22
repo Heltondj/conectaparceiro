@@ -195,7 +195,7 @@ const downloadsApi = {
 
 /* ---------- IA (Cloud Function "ia", chave da API fica no servidor) ---------- */
 const b64 = blob => new Promise((ok, er) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = er; r.readAsDataURL(blob); });
-const MODELO_GEMINI = CFG.modeloGemini || 'gemini-2.5-flash';
+const MODELO_GEMINI = CFG.modeloGemini || 'gemini-3.8-flash';
 let _gem = null;
 async function chamarGemini(prompt, images){
   if (!_gem) _gem = getGenerativeModel(getAI(app, {backend: new GoogleAIBackend()}), {model: MODELO_GEMINI});
