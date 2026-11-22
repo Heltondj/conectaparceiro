@@ -14,5 +14,6 @@ window.CP_CONFIG = {
   administradores: ["hvieira@alupar.com.br"],
   regiaoFuncoes: "southamerica-east1",
   armazenamento: "banco",   // "banco" = PDFs e fotos no próprio banco (plano gratuito) | "storage" = Cloud Storage (plano Blaze)
+  modeloGemini: "gemini-3.8-flash",   // modelo do Gemini usado na análise
   ia: "gemini"   // "gemini" = IA do Google pelo Firebase AI Logic (plano gratuito) | true = Claude pela função (plano Blaze) | false = sem IA
 };
