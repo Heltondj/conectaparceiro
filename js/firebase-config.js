@@ -13,5 +13,6 @@ window.CP_CONFIG = {
   },
   administradores: ["hvieira@alupar.com.br"],
   regiaoFuncoes: "southamerica-east1",
-  ia: true   // false = desliga a análise por IA (os documentos ficam para análise manual)
+  armazenamento: "banco",   // "banco" = PDFs e fotos no próprio banco (plano gratuito) | "storage" = Cloud Storage (plano Blaze)
+  ia: false   // true só depois de ativar a função de IA (plano Blaze) – sem IA, a análise é feita manualmente
 };

@@ -3,13 +3,17 @@
    por Firebase Auth, Firestore, Storage e Cloud Functions. O app em si não muda. */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, deleteObject } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
 
 const CFG = window.CP_CONFIG || {};
 const app = initializeApp(CFG.firebase);
-const auth = getAuth(app), fs = getFirestore(app), st = getStorage(app);
+const auth = getAuth(app), st = getStorage(app);
+// cache local: reabrir o portal lê do aparelho e só baixa o que mudou (economiza a cota gratuita)
+const fs = initializeFirestore(app, {localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})});
+// 'banco' = PDFs e fotos guardados no próprio banco (plano gratuito); 'storage' = Cloud Storage (plano Blaze)
+const ARMAZ = CFG.armazenamento === 'storage' ? 'storage' : 'banco';
 auth.languageCode = 'pt';
 const fn = getFunctions(app, CFG.regiaoFuncoes || 'southamerica-east1');
 const ADMINS = (CFG.administradores || []).map(e => String(e).trim().toLowerCase());
@@ -213,7 +217,7 @@ async function use(nome){
   await prontoP;
   if (nome === 'db') return dbApi;
   if (nome === 'user') return userApi;
-  if (nome === 'assets') return assetsApi;
+  if (nome === 'assets') return ARMAZ === 'storage' ? assetsApi : null;
   if (nome === 'downloads') return downloadsApi;
   if (nome === 'sample') return (CFG.ia !== false && ctx.tec) ? sampleApi() : null;
   return null;
@@ -262,11 +266,33 @@ async function importar(zipFile, progresso = () => {}){
   const dados = JSON.parse(await zip.file('dados.json').async('string'));
   const arqs = Object.keys(zip.files).filter(n => n.startsWith('arquivos/') && !zip.files[n].dir);
   const tipos = dados.tiposArquivos || {};
-  let i = 0;
+  let i = 0; const noBanco = {};
   for (const n of arqs){
-    const id = n.slice(9); const blob = await zip.file(n).async('blob');
-    await uploadBytes(ref(st, 'arquivos/' + id), blob, {contentType: tipos[id] || 'application/octet-stream'});
+    const id = n.slice(9);
+    if (ARMAZ === 'storage'){
+      const blob = await zip.file(n).async('blob');
+      await uploadBytes(ref(st, 'arquivos/' + id), blob, {contentType: tipos[id] || 'application/octet-stream'});
+    } else {
+      // plano gratuito: o arquivo vira partes de 180 KB na coleção "arquivos", no mesmo formato que o app usa
+      const buf = await zip.file(n).async('uint8array'), CH = 180000, fid = 'm' + id.slice(0, 20), np = Math.ceil(buf.length / CH) || 1;
+      let b = writeBatch(fs), k = 0;
+      for (let j = 0; j < np; j++){
+        const parte = buf.subarray(j * CH, (j + 1) * CH); let bin = '';
+        for (let q = 0; q < parte.length; q += 8192) bin += String.fromCharCode.apply(null, parte.subarray(q, q + 8192));
+        b.set(doc(fs, 'arquivos', fid + '_' + j), {fid, i:j, n:np, data:btoa(bin)}); k++;
+        if (k === 3){ await b.commit(); b = writeBatch(fs); k = 0; }
+      }
+      if (k) await b.commit();
+      noBanco[id] = {fid, n:np, tam:buf.length, tipo: tipos[id] || 'application/pdf', buf: (tipos[id] || '').startsWith('image/') && buf.length < 300000 ? buf : null};
+    }
     progresso(`Arquivos: ${++i} de ${arqs.length}`);
+  }
+  // aponta os cadastros para as partes no banco
+  const conv = f => { if (!f || !f.id || !noBanco[f.id]) return f; const x = noBanco[f.id]; const {id, ...resto} = f; return {...resto, db:true, fid:x.fid, n:x.n, tam:resto.tam || x.tam, tipo:resto.tipo || x.tipo}; };
+  const fotoData = f => { const x = f && f.id && noBanco[f.id]; if (!x || !x.buf) return f; let bin = ''; for (let q = 0; q < x.buf.length; q += 8192) bin += String.fromCharCode.apply(null, x.buf.subarray(q, q + 8192)); return {data:'data:' + (x.tipo || 'image/jpeg') + ';base64,' + btoa(bin), em:f.em || null}; };
+  if (ARMAZ !== 'storage'){
+    for (const d of (dados.colecoes.documentos || [])) d.data = {...d.data, arquivo:conv(d.data.arquivo), carta:conv(d.data.carta)};
+    for (const d of (dados.colecoes.funcionarios || [])) if (d.data.foto) d.data = {...d.data, foto:fotoData(d.data.foto)};
   }
   const cols = Object.keys(dados.colecoes || {}); let tot = 0;
   for (const c of cols){
