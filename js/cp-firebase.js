@@ -1,11 +1,12 @@
 /* ConectaParceiro – ponte com o Firebase
    Substitui os serviços que o app usava no Claude (banco, login, arquivos, IA e downloads)
    por Firebase Auth, Firestore, Storage e Cloud Functions. O app em si não muda. */
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { getStorage, ref, uploadBytes, deleteObject } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
-import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, writeBatch } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { getStorage, ref, uploadBytes, deleteObject } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
+import { getAI, getGenerativeModel, GoogleAIBackend } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-ai.js';
 
 const CFG = window.CP_CONFIG || {};
 const app = initializeApp(CFG.firebase);
@@ -194,10 +195,20 @@ const downloadsApi = {
 
 /* ---------- IA (Cloud Function "ia", chave da API fica no servidor) ---------- */
 const b64 = blob => new Promise((ok, er) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = er; r.readAsDataURL(blob); });
+const MODELO_GEMINI = CFG.modeloGemini || 'gemini-2.5-flash';
+let _gem = null;
+async function chamarGemini(prompt, images){
+  if (!_gem) _gem = getGenerativeModel(getAI(app, {backend: new GoogleAIBackend()}), {model: MODELO_GEMINI});
+  const partes = [{text: prompt}, ...images.map(i => ({inlineData: {mimeType: i.type, data: i.data}}))];
+  try { const r = await _gem.generateContent(partes); return {text: r.response.text()}; }
+  catch (e){ const m = String(e && (e.message || e.code) || ''); const x = new Error(m);
+    x.code = /429|quota|RESOURCE_EXHAUSTED/i.test(m) ? 'rate_limited' : /403|PERMISSION|API has not been used|disabled/i.test(m) ? 'not_granted' : 'upstream_error'; throw x; }
+}
 async function chamarIA(input, opts = {}){
   const prompt = typeof input === 'string' ? input : (input || []).map(m => (m.role === 'assistant' ? 'Resposta anterior: ' : '') + m.content).join('\n\n');
   const images = [];
   for (const im of (opts.images || []).slice(0, 8)) images.push({type: im.type || 'image/jpeg', data: await b64(im)});
+  if (CFG.ia === 'gemini') return chamarGemini(prompt, images);
   try { const r = await httpsCallable(fn, 'ia', {timeout:300000})({prompt, images, tier: opts.modelTier || 'default', json: !!opts.json}); return r.data || {text:''}; }
   catch (e){ const x = comCodigo(e); if (x.code === 'invalid_argument') x.code = 'not_granted'; throw x; }
 }

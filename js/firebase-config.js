@@ -14,5 +14,5 @@ window.CP_CONFIG = {
   administradores: ["hvieira@alupar.com.br"],
   regiaoFuncoes: "southamerica-east1",
   armazenamento: "banco",   // "banco" = PDFs e fotos no próprio banco (plano gratuito) | "storage" = Cloud Storage (plano Blaze)
-  ia: false   // true só depois de ativar a função de IA (plano Blaze) – sem IA, a análise é feita manualmente
+  ia: "gemini"   // "gemini" = IA do Google pelo Firebase AI Logic (plano gratuito) | true = Claude pela função (plano Blaze) | false = sem IA
 };
